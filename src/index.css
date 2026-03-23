@@ -1,0 +1,138 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 97%;
+    --foreground: 120 10% 12%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 120 10% 12%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 120 10% 12%;
+
+    --primary: 122 46% 33%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 45 97% 58%;
+    --secondary-foreground: 120 10% 12%;
+
+    --muted: 120 5% 92%;
+    --muted-foreground: 120 5% 45%;
+
+    --accent: 45 97% 58%;
+    --accent-foreground: 120 10% 12%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 120 5% 88%;
+    --input: 120 5% 88%;
+    --ring: 122 46% 33%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 122 46% 33%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 120 5% 92%;
+    --sidebar-accent-foreground: 120 10% 12%;
+    --sidebar-border: 120 5% 88%;
+    --sidebar-ring: 122 46% 33%;
+
+    --success: 122 46% 40%;
+    --success-foreground: 0 0% 100%;
+    --warning: 45 97% 58%;
+    --warning-foreground: 120 10% 12%;
+    --info: 210 70% 50%;
+    --info-foreground: 0 0% 100%;
+  }
+
+  /* Automatically follows device system preference — no JS toggle needed */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 120 10% 8%;
+      --foreground: 0 0% 95%;
+
+      --card: 120 10% 12%;
+      --card-foreground: 0 0% 95%;
+
+      --popover: 120 10% 12%;
+      --popover-foreground: 0 0% 95%;
+
+      --primary: 122 46% 40%;
+      --primary-foreground: 0 0% 100%;
+
+      --secondary: 45 97% 50%;
+      --secondary-foreground: 120 10% 12%;
+
+      --muted: 120 5% 18%;
+      --muted-foreground: 120 5% 60%;
+
+      --accent: 45 80% 45%;
+      --accent-foreground: 120 10% 12%;
+
+      --destructive: 0 62.8% 30.6%;
+      --destructive-foreground: 0 0% 100%;
+
+      --border: 120 5% 20%;
+      --input: 120 5% 20%;
+      --ring: 122 46% 40%;
+
+      --sidebar-background: 120 10% 10%;
+      --sidebar-foreground: 0 0% 90%;
+      --sidebar-primary: 122 46% 40%;
+      --sidebar-primary-foreground: 0 0% 100%;
+      --sidebar-accent: 120 5% 18%;
+      --sidebar-accent-foreground: 0 0% 90%;
+      --sidebar-border: 120 5% 20%;
+      --sidebar-ring: 122 46% 40%;
+
+      --success: 122 46% 45%;
+      --success-foreground: 0 0% 100%;
+      --warning: 45 97% 55%;
+      --warning-foreground: 120 10% 12%;
+      --info: 210 70% 55%;
+      --info-foreground: 0 0% 100%;
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Noto Sans', sans-serif;
+  }
+}
+
+@layer utilities {
+  .gradient-primary {
+    background: linear-gradient(135deg, hsl(122 46% 33%), hsl(122 46% 25%));
+  }
+  .gradient-sunny {
+    background: linear-gradient(135deg, hsl(45 97% 58%), hsl(40 95% 50%));
+  }
+  .gradient-hero {
+    background: linear-gradient(160deg, hsl(122 46% 33%) 0%, hsl(122 46% 25%) 50%, hsl(120 30% 18%) 100%);
+  }
+  .text-gradient-primary {
+    background: linear-gradient(135deg, hsl(122 46% 33%), hsl(122 46% 45%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .shadow-primary {
+    box-shadow: 0 4px 14px -3px hsl(122 46% 33% / 0.3);
+  }
+  .shadow-sunny {
+    box-shadow: 0 4px 14px -3px hsl(45 97% 58% / 0.4);
+  }
+}
