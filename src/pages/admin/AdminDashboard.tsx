@@ -10,7 +10,9 @@ import {
   Eye, Trash2, Search, LogOut, Activity, RefreshCw, X,
   FileText, Save, Menu, ChevronLeft, LayoutDashboard,
   Bell, Settings, Home, BarChart2, Newspaper, ShoppingCart,
-  Bug, Beef, Wheat, ChevronDown
+  Bug, Beef, Wheat, ChevronDown, Map, Calendar, ExternalLink,
+  CloudRain, Bug as BugIcon, TrendingDown, Gift, Sun, Wind,
+  Thermometer, Droplets, AlertCircle, Megaphone
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,7 +31,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Section =
-  | 'dashboard' | 'reports'
+  | 'dashboard' | 'reports' | 'map'
   | 'users' | 'farmers' | 'buyers' | 'experts'
   | 'crops' | 'diseases' | 'animals'
   | 'products' | 'orders'
@@ -55,8 +57,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     group: 'OVERVIEW',
     items: [
-      { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
-      { id: 'reports',   label: 'Reports',   icon: <BarChart2 size={16} /> },
+      { id: 'dashboard', label: 'Dashboard',  icon: <LayoutDashboard size={16} /> },
+      { id: 'reports',   label: 'Reports',    icon: <BarChart2 size={16} /> },
+      { id: 'map',       label: 'Farmer Map', icon: <Map size={16} /> },
     ],
   },
   {
@@ -71,9 +74,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     group: 'CROPS & DISEASES',
     items: [
-      { id: 'crops',    label: 'Seasonal Crops',    icon: <Wheat size={16} /> },
-      { id: 'diseases', label: 'Plant Diseases', icon: <Bug size={16} />, badge: (s) => s?.openIssues ?? undefined },
-      { id: 'animals',  label: 'Animals Diseases',  icon: <Beef size={16} /> },
+      { id: 'crops',    label: 'Seasonal Crops',  icon: <Wheat size={16} /> },
+      { id: 'diseases', label: 'Plant Diseases',  icon: <Bug size={16} />, badge: (s) => s?.openIssues ?? undefined },
+      { id: 'animals',  label: 'Animal Diseases', icon: <Beef size={16} /> },
     ],
   },
   {
@@ -226,16 +229,12 @@ const CatalogGrid: React.FC<{ category: 'plant' | 'animal'; showSearch?: boolean
 };
 
 // ─── Crops Panel — from seasonalRecommendations ───────────────────────────────
-// ─── Crops Panel — from seasonalRecommendations ───────────────────────────────
 const CropsPanel: React.FC = () => {
   const [query, setQuery] = useState('');
-  
   // Flatten all crops from all months, deduplicate by name
   const allCrops = useMemo(() => {
     const seen = new Set<string>();
-    // 1. CHANGED: Typings changed from 'image' to 'img' to match your array keys
-    const result: { name: string; np: string; img: string; months: string[] }[] = [];
-    
+    const result: { name: string; np: string; image: string; months: string[] }[] = [];
     seasonalRecommendations.forEach((month: any) => {
       (month.crops ?? []).forEach((crop: any) => {
         if (!seen.has(crop.name)) {
@@ -260,7 +259,7 @@ const CropsPanel: React.FC = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-foreground">Seasonal Crops Suggestion</h2>
+          <h2 className="text-xl font-bold text-foreground">Crops Catalog</h2>
           <p className="text-sm text-muted-foreground mt-1">Seasonal crops in the system</p>
         </div>
         <span className="text-xs text-muted-foreground">{filtered.length} crops</span>
@@ -276,9 +275,8 @@ const CropsPanel: React.FC = () => {
           {filtered.map((crop, i) => (
             <Card key={i} className="rounded-xl overflow-hidden border border-border/60 hover:shadow-md transition-shadow">
               <div className="h-24 bg-muted relative">
-                {/* 2. FIXED: Removed local directory prefix and changed to crop.img */}
                 <img
-                  src={crop.img}
+                  src={`/assets/crops/${crop.image}`}
                   alt={crop.name}
                   className="w-full h-full object-cover"
                   onError={e => { (e.target as HTMLImageElement).src = '/assets/placeholder.jpg'; }}
@@ -288,10 +286,7 @@ const CropsPanel: React.FC = () => {
               <CardContent className="p-2.5">
                 <p className="font-semibold text-xs text-foreground line-clamp-1">{crop.name}</p>
                 <p className="text-[10px] text-primary font-medium mt-0.5">{crop.np}</p>
-                <p className="text-[9px] text-muted-foreground mt-1 line-clamp-1">
-                  {crop.months.slice(0, 2).join(', ')}
-                  {crop.months.length > 2 ? ` +${crop.months.length - 2}` : ''}
-                </p>
+                <p className="text-[9px] text-muted-foreground mt-1 line-clamp-1">{crop.months.slice(0, 2).join(', ')}{crop.months.length > 2 ? ` +${crop.months.length - 2}` : ''}</p>
               </CardContent>
             </Card>
           ))}
@@ -301,10 +296,124 @@ const CropsPanel: React.FC = () => {
   );
 };
 
-// ─── Agricultural News Panel — NewsAPI.org ────────────────────────────────────
-// Uses the free NewsAPI.org endpoint. Replace NEWS_API_KEY with your key.
-// Get a free key at https://newsapi.org/register
-const NEWS_API_KEY = 'YOUR_NEWSAPI_KEY'; // ← replace with your key
+// ─── Crop Detail Modal ────────────────────────────────────────────────────────
+const CropDetailModal: React.FC<{ crop: any; onClose: () => void }> = ({ crop, onClose }) => (
+  <Dialog open={true} onOpenChange={o => !o && onClose()}>
+    <DialogContent className="max-w-md rounded-2xl p-0 overflow-hidden bg-card max-h-[90vh] flex flex-col">
+      <div className="relative w-full h-48 shrink-0">
+        <img src={crop.img} alt={crop.name} className="w-full h-full object-cover"
+          onError={e => { (e.target as HTMLImageElement).src = '/assets/placeholder.jpg'; }} />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        <button onClick={onClose} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white"><X size={16} /></button>
+        <div className="absolute bottom-3 left-4">
+          <span className="text-[10px] bg-white/20 text-white px-2 py-0.5 rounded-full font-semibold backdrop-blur-sm">🌾 Seasonal Crop</span>
+          <h2 className="text-xl font-black text-white mt-1">{crop.name}</h2>
+          <p className="text-sm text-white/80 font-semibold">{crop.np}</p>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 [&::-webkit-scrollbar]:hidden">
+        <div className="bg-green-50 dark:bg-green-950/20 border border-green-200/80 dark:border-green-800/30 rounded-xl p-3">
+          <p className="text-[11px] font-bold text-green-700 dark:text-green-400 uppercase tracking-wider mb-2">📅 Best Growing Months</p>
+          <div className="flex flex-wrap gap-1.5">
+            {crop.months.map((m: string) => (
+              <span key={m} className="px-2.5 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400 text-xs font-semibold rounded-full">{m}</span>
+            ))}
+          </div>
+        </div>
+        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/30 rounded-xl p-3">
+          <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider mb-1">🌍 Climate Suitability</p>
+          <p className="text-sm text-foreground">Best suited for Nepal's mid-hill and Terai regions. Grows well in warm, humid conditions with adequate rainfall.</p>
+        </div>
+        <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200/80 dark:border-blue-800/30 rounded-xl p-3">
+          <p className="text-[11px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider mb-1">💧 Irrigation</p>
+          <p className="text-sm text-foreground">Requires regular watering. Ensure proper drainage to avoid waterlogging. Drip irrigation recommended for water efficiency.</p>
+        </div>
+        <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200/80 dark:border-purple-800/30 rounded-xl p-3">
+          <p className="text-[11px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider mb-1">🌱 Growing Tips</p>
+          <p className="text-sm text-foreground">Prepare soil with organic compost before planting. Space plants adequately for airflow. Monitor for pests and diseases during growth stages.</p>
+        </div>
+        <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-3 flex gap-2.5">
+          <span className="text-lg shrink-0">⚕️</span>
+          <p className="text-xs text-muted-foreground leading-relaxed">For specific crop advice, consult your local Agricultural Service Centre (कृषि सेवा केन्द्र) or an agronomist on this platform.</p>
+        </div>
+      </div>
+    </DialogContent>
+  </Dialog>
+);
+
+// ─── Crops Panel — from seasonalRecommendations ───────────────────────────────
+const CropsPanel: React.FC = () => {
+  const [query, setQuery] = useState('');
+  const [selectedCrop, setSelectedCrop] = useState<any | null>(null);
+
+  const allCrops = useMemo(() => {
+    const seen = new Set<string>();
+    const result: { name: string; np: string; image: string; months: string[] }[] = [];
+    seasonalRecommendations.forEach((month: any) => {
+      (month.crops ?? []).forEach((crop: any) => {
+        if (!seen.has(crop.name)) {
+          seen.add(crop.name);
+          result.push({ ...crop, months: [month.name] });
+        } else {
+          const existing = result.find(r => r.name === crop.name);
+          if (existing) existing.months.push(month.name);
+        }
+      });
+    });
+    return result;
+  }, []);
+
+  const filtered = useMemo(() =>
+    allCrops.filter(c =>
+      c.name.toLowerCase().includes(query.toLowerCase()) ||
+      c.np?.toLowerCase().includes(query.toLowerCase())
+    ), [allCrops, query]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Crops Catalog</h2>
+          <p className="text-sm text-muted-foreground mt-1">Click any crop to view details</p>
+        </div>
+        <span className="text-xs text-muted-foreground">{filtered.length} crops</span>
+      </div>
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
+        <Input placeholder="Search crops..." value={query} onChange={e => setQuery(e.target.value)} className="pl-9 h-9 bg-white dark:bg-card border-border/60" />
+      </div>
+      {filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">No crops found.</div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+          {filtered.map((crop, i) => (
+            <Card key={i} onClick={() => setSelectedCrop(crop)}
+              className="rounded-xl overflow-hidden border border-border/60 hover:shadow-md transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
+              <div className="h-24 bg-muted relative">
+                <img
+                  src={`/assets/crops/${crop.image}`}
+                  alt={crop.name}
+                  className="w-full h-full object-cover"
+                  onError={e => { (e.target as HTMLImageElement).src = '/assets/placeholder.jpg'; }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                <span className="absolute bottom-1.5 right-1.5 text-[9px] bg-black/50 text-white px-1.5 py-0.5 rounded-full font-semibold backdrop-blur-sm">
+                  {crop.months?.length ?? 0}mo
+                </span>
+              </div>
+              <CardContent className="p-2.5">
+                <p className="font-semibold text-xs text-foreground line-clamp-1">{crop.name}</p>
+                <p className="text-[10px] text-primary font-medium mt-0.5">{crop.np}</p>
+                <p className="text-[9px] text-muted-foreground mt-1 line-clamp-1">{crop.months.slice(0, 2).join(', ')}{crop.months.length > 2 ? ` +${crop.months.length - 2}` : ''}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+      {selectedCrop && <CropDetailModal crop={selectedCrop} onClose={() => setSelectedCrop(null)} />}
+    </div>
+  );
+};
 
 const AgriNewsPanel: React.FC = () => {
   const [articles, setArticles] = useState<any[]>([]);
@@ -367,9 +476,35 @@ const AgriNewsPanel: React.FC = () => {
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-sm text-amber-800 dark:text-amber-400 space-y-1">
-          <p className="font-semibold">NewsAPI not configured</p>
-          <p className="text-xs">{error}</p>
+        <div className="space-y-4">
+          <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-sm space-y-1">
+            <p className="font-semibold text-amber-800 dark:text-amber-400">NewsAPI not configured</p>
+            <p className="text-xs text-amber-700 dark:text-amber-500">{error}</p>
+          </div>
+          {/* Curated fallback links */}
+          <div>
+            <p className="text-sm font-semibold text-foreground mb-3">Recommended Agricultural News Sources</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {[
+                { name: 'Ministry of Agriculture Nepal', url: 'https://moald.gov.np', desc: 'Official government agricultural updates and policies', flag: '🇳🇵' },
+                { name: 'Krishi Bazar', url: 'https://krishibazaar.in', desc: 'Agricultural market prices and farming news', flag: '🌾' },
+                { name: 'FAO Nepal', url: 'https://www.fao.org/nepal', desc: 'UN Food & Agriculture Organization — Nepal office', flag: '🌍' },
+                { name: 'NARC Nepal', url: 'https://narc.gov.np', desc: 'Nepal Agricultural Research Council updates', flag: '🔬' },
+                { name: 'AgriNews Nepal', url: 'https://www.agrinewsnepal.com', desc: 'Local farming news and crop advisory', flag: '📰' },
+                { name: 'The Guardian – Agriculture', url: 'https://www.theguardian.com/environment/agriculture', desc: 'Global agricultural environment news', flag: '🌿' },
+              ].map((source, i) => (
+                <a key={i} href={source.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-start gap-3 p-3 rounded-xl border border-border/60 bg-card hover:shadow-md hover:border-border transition-all group dark:bg-white/5 dark:hover:bg-white/10">
+                  <span className="text-2xl flex-shrink-0">{source.flag}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">{source.name}</p>
+                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{source.desc}</p>
+                  </div>
+                  <ExternalLink size={13} className="flex-shrink-0 text-muted-foreground/50 group-hover:text-primary mt-0.5 transition-colors" />
+                </a>
+              ))}
+            </div>
+          </div>
         </div>
       )}
 
@@ -415,12 +550,19 @@ const NotificationsPanel: React.FC = () => {
   const [farmers, setFarmers] = useState<any[]>([]);
   const [selectedFarmer, setSelectedFarmer] = useState('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sent, setSent] = useState<{ title: string; recipients: number; time: string }[]>([]);
 
   const ALERT_TEMPLATES = [
-    { label: '🌧️ Heavy Rain', title: 'Heavy Rain Alert!', message: 'Heavy rainfall is expected in your area over the next 24 hours. Please ensure adequate drainage for your crops and avoid spraying fertilizers today.' },
-    { label: '🐛 Pest Warning', title: 'Pest Outbreak Warning', message: 'A recent pest outbreak has been reported in nearby districts. Please inspect your fields and apply preventive organic measures if necessary.' },
-    { label: '💰 Price Drop', title: 'Market Price Fluctuation', message: 'Market prices for seasonal vegetables have dropped slightly today. Please check the Market Trends tab before selling your produce.' },
-    { label: '🎁 Subsidy', title: 'New Fertilizer Subsidy', message: 'The local government has announced a new subsidy for organic fertilizers. Please contact your ward office for more details.' },
+    { label: '🌧️ Heavy Rain',    icon: <CloudRain size={13} />,    color: '#3b82f6', title: 'Heavy Rain Alert!', message: 'Heavy rainfall is expected in your area over the next 24 hours. Please ensure adequate drainage for your crops and avoid spraying fertilizers today.' },
+    { label: '🐛 Pest Warning',  icon: <Bug size={13} />,          color: '#ef4444', title: 'Pest Outbreak Warning', message: 'A recent pest outbreak has been reported in nearby districts. Please inspect your fields and apply preventive organic measures if necessary.' },
+    { label: '💰 Price Drop',    icon: <TrendingDown size={13} />, color: '#f59e0b', title: 'Market Price Fluctuation', message: 'Market prices for seasonal vegetables have dropped slightly today. Please check the Market Trends tab before selling your produce.' },
+    { label: '🎁 Subsidy',       icon: <Gift size={13} />,         color: '#8b5cf6', title: 'New Fertilizer Subsidy', message: 'The local government has announced a new subsidy for organic fertilizers. Please contact your ward office for more details.' },
+    { label: '☀️ Drought Alert', icon: <Sun size={13} />,          color: '#f97316', title: 'Drought Warning', message: 'Extended dry weather is forecast for the coming weeks. Please prepare water conservation measures and consider adjusting irrigation schedules.' },
+    { label: '🌡️ Frost Warning', icon: <Thermometer size={13} />, color: '#06b6d4', title: 'Frost Warning Tonight', message: 'Temperatures are expected to drop below freezing tonight. Please cover sensitive crops and bring young seedlings indoors if possible.' },
+    { label: '💧 Irrigation',    icon: <Droplets size={13} />,     color: '#0ea5e9', title: 'Irrigation Advisory', message: 'Optimal irrigation period: water your crops in early morning or late evening this week to reduce evaporation losses during the dry spell.' },
+    { label: '⚠️ Disease Alert', icon: <AlertCircle size={13} />,  color: '#dc2626', title: 'Disease Outbreak Alert', message: 'A fungal disease outbreak has been reported in Kaski and Syangja districts. Please monitor your crops closely and contact an expert if symptoms appear.' },
+    { label: '📣 Market Open',   icon: <Megaphone size={13} />,    color: '#1e5a32', title: 'Weekly Market Tomorrow', message: 'The weekly farmers market opens tomorrow at 6 AM. Good prices expected for fresh vegetables. Bring your produce early for the best sales.' },
+    { label: '🌱 Planting Time', icon: <Leaf size={13} />,         color: '#16a34a', title: 'Optimal Planting Window', message: 'This week is the ideal time to plant seasonal crops such as tomatoes, peppers and cucumbers. Soil temperature and moisture levels are optimal.' },
   ];
 
   useEffect(() => {
@@ -440,6 +582,7 @@ const NotificationsPanel: React.FC = () => {
         targetIds.map(id => ({ user_id: id, title, message, type: 'admin_alert', is_read: false }))
       );
       if (error) throw error;
+      setSent(prev => [{ title, recipients: targetIds.length, time: new Date().toLocaleTimeString() }, ...prev.slice(0, 4)]);
       toast.success(`Notification sent to ${targetIds.length} user(s)!`);
       setTitle(''); setMessage('');
     } catch (err: any) {
@@ -449,52 +592,118 @@ const NotificationsPanel: React.FC = () => {
     }
   };
 
+  const recipientName = selectedFarmer === 'all' ? `All Farmers (${farmers.length})` : farmers.find(f => f.id === selectedFarmer)?.full_name ?? 'Selected Farmer';
+
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="space-y-6 max-w-5xl">
       <div>
         <h2 className="text-xl font-bold text-foreground">Broadcast Notifications</h2>
-        <p className="text-sm text-muted-foreground mt-1">Send push alerts to farmers</p>
+        <p className="text-sm text-muted-foreground mt-1">Send push alerts directly to farmers on the platform</p>
       </div>
-      <Card className="border border-border/60">
-        <CardContent className="p-6 space-y-5">
-          <div>
-            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2 block">Quick Templates</Label>
-            <div className="flex flex-wrap gap-2">
-              {ALERT_TEMPLATES.map((tpl, i) => (
-                <button key={i} type="button" onClick={() => { setTitle(tpl.title); setMessage(tpl.message); }}
-                  className="px-3 py-1.5 bg-primary/10 text-primary hover:bg-primary/20 rounded-lg text-xs font-semibold transition-colors border border-primary/20">
-                  {tpl.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <form onSubmit={handleSend} className="space-y-4">
-            <div>
-              <Label className="text-sm font-semibold mb-1.5 block">Recipients</Label>
-              <Select value={selectedFarmer} onValueChange={setSelectedFarmer}>
-                <SelectTrigger className="h-10 bg-muted/30 border-border/60">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">📢 All Farmers ({farmers.length})</SelectItem>
-                  {farmers.map(f => <SelectItem key={f.id} value={f.id}>👤 {f.full_name || 'Unnamed'}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-sm font-semibold mb-1.5 block">Title</Label>
-              <Input placeholder="Alert title..." value={title} onChange={e => setTitle(e.target.value)} className="h-10 bg-muted/30 border-border/60" disabled={isSubmitting} />
-            </div>
-            <div>
-              <Label className="text-sm font-semibold mb-1.5 block">Message</Label>
-              <Textarea placeholder="Notification message..." value={message} onChange={e => setMessage(e.target.value)} className="min-h-[100px] bg-muted/30 border-border/60 resize-none" disabled={isSubmitting} />
-            </div>
-            <Button type="submit" disabled={isSubmitting} className="h-10 px-6 font-semibold">
-              {isSubmitting ? <><RefreshCw size={14} className="mr-2 animate-spin" />Sending...</> : <><Send size={14} className="mr-2" />Send Notification</>}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* ── Compose Panel ── */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* Templates */}
+          <Card className="border border-border/60 dark:bg-card/80">
+            <CardContent className="p-4">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Quick Templates</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {ALERT_TEMPLATES.map((tpl, i) => (
+                  <button key={i} type="button"
+                    onClick={() => { setTitle(tpl.title); setMessage(tpl.message); }}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-semibold transition-all border text-left hover:scale-[1.02] active:scale-[0.98] ${title === tpl.title ? 'border-transparent text-white shadow-sm' : 'border-border/60 text-foreground hover:bg-muted/60 dark:hover:bg-white/5'}`}
+                    style={title === tpl.title ? { background: tpl.color } : {}}>
+                    <span className="flex-shrink-0" style={{ color: title === tpl.title ? 'white' : tpl.color }}>{tpl.icon}</span>
+                    {tpl.label}
+                  </button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Form */}
+          <Card className="border border-border/60 dark:bg-card/80">
+            <CardContent className="p-5">
+              <form onSubmit={handleSend} className="space-y-4">
+                <div>
+                  <Label className="text-sm font-semibold mb-1.5 block">Recipients</Label>
+                  <Select value={selectedFarmer} onValueChange={setSelectedFarmer}>
+                    <SelectTrigger className="h-10 bg-muted/30 border-border/60 dark:bg-white/5">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">📢 All Farmers ({farmers.length})</SelectItem>
+                      {farmers.map(f => <SelectItem key={f.id} value={f.id}>👤 {f.full_name || 'Unnamed'}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold mb-1.5 block">Title</Label>
+                  <Input placeholder="e.g. Heavy Rain Alert!" value={title} onChange={e => setTitle(e.target.value)} className="h-10 bg-muted/30 border-border/60 dark:bg-white/5" disabled={isSubmitting} />
+                </div>
+                <div>
+                  <Label className="text-sm font-semibold mb-1.5 block">Message</Label>
+                  <Textarea placeholder="Type your notification message..." value={message} onChange={e => setMessage(e.target.value)} className="min-h-[110px] bg-muted/30 border-border/60 dark:bg-white/5 resize-none" disabled={isSubmitting} />
+                  <p className="text-[10px] text-muted-foreground mt-1 text-right">{message.length} chars</p>
+                </div>
+                <Button type="submit" disabled={isSubmitting || !title || !message} className="h-10 px-6 font-semibold w-full sm:w-auto" style={{ background: '#1e5a32' }}>
+                  {isSubmitting ? <><RefreshCw size={14} className="mr-2 animate-spin" />Sending...</> : <><Send size={14} className="mr-2" />Send to {selectedFarmer === 'all' ? `${farmers.length} Farmers` : 'Farmer'}</>}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ── Preview + History ── */}
+        <div className="space-y-4">
+          {/* Live Preview */}
+          <Card className="border border-border/60 dark:bg-card/80">
+            <CardContent className="p-4">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Live Preview</p>
+              <div className="bg-[#1e5a32]/10 dark:bg-[#1e5a32]/20 border border-[#1e5a32]/30 rounded-xl p-3 space-y-1.5">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0" style={{ background: '#1e5a32' }}>
+                    <Leaf size={12} className="text-white" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-foreground">Hamro Kisan Admin</p>
+                    <p className="text-[9px] text-muted-foreground">Push Notification · Now</p>
+                  </div>
+                </div>
+                <p className="text-xs font-bold text-foreground">{title || 'Notification Title'}</p>
+                <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-3">{message || 'Your notification message will appear here...'}</p>
+                <p className="text-[9px] text-muted-foreground/70 pt-1">→ {recipientName}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Sent History */}
+          <Card className="border border-border/60 dark:bg-card/80">
+            <CardContent className="p-4">
+              <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Recent Sent</p>
+              {sent.length === 0 ? (
+                <div className="text-center py-6">
+                  <Bell size={20} className="mx-auto mb-2 text-muted-foreground/30" />
+                  <p className="text-xs text-muted-foreground">No notifications sent yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {sent.map((s, i) => (
+                    <div key={i} className="flex items-start gap-2 p-2.5 bg-muted/40 dark:bg-white/5 rounded-lg">
+                      <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: '#1e5a32' }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-foreground truncate">{s.title}</p>
+                        <p className="text-[10px] text-muted-foreground">{s.recipients} recipients · {s.time}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };
@@ -772,7 +981,7 @@ export const AdminDashboard: React.FC = () => {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="flex h-screen bg-muted/30 overflow-hidden font-sans">
+    <div className="flex h-screen bg-muted/30 dark:bg-[#090b0f] overflow-hidden font-sans">
 
       {/* ══════════════════ SIDEBAR ══════════════════ */}
       <aside className={`${sidebarW} flex-shrink-0 bg-[#0f1117] border-r border-white/5 flex flex-col transition-all duration-300 ease-in-out overflow-hidden`}>
@@ -855,7 +1064,7 @@ export const AdminDashboard: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
         {/* ── Top Header ── */}
-        <header className="h-16 bg-white dark:bg-card border-b border-border/60 flex items-center gap-4 px-6 flex-shrink-0">
+        <header className="h-16 bg-white dark:bg-[#0f1117] border-b border-border/60 dark:border-white/5 flex items-center gap-4 px-6 flex-shrink-0">
           <button onClick={() => setSidebarCollapsed(p => !p)} className="w-8 h-8 rounded-lg hover:bg-muted/60 flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground">
             {sidebarCollapsed ? <Menu size={18} /> : <ChevronLeft size={18} />}
           </button>
@@ -955,7 +1164,12 @@ export const AdminDashboard: React.FC = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 <Card className="lg:col-span-2 border border-border/60">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-bold flex items-center gap-2"><MapPin size={14} style={{ color: BRAND }} /> Farmer Distribution by District</CardTitle>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-sm font-bold flex items-center gap-2"><MapPin size={14} style={{ color: BRAND }} /> Farmer Distribution by District</CardTitle>
+                      <button onClick={() => setSection('map')} className="text-[11px] font-semibold text-primary flex items-center gap-1 hover:underline">
+                        View Full Map <ChevronRight size={12} />
+                      </button>
+                    </div>
                   </CardHeader>
                   <CardContent>
                     <NepalMap farmersByDistrict={farmersByDistrict} />
@@ -1235,6 +1449,45 @@ export const AdminDashboard: React.FC = () => {
                   </CardContent>
                 </Card>
               </div>
+            </div>
+          )}
+
+          {/* ════════════ MAP ════════════ */}
+          {section === 'map' && (
+            <div className="space-y-5">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Farmer Distribution Map</h2>
+                <p className="text-sm text-muted-foreground mt-1">Geographic distribution of registered farmers across Nepal</p>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {statsLoading ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-xl" />) : (
+                  <>
+                    <Card className="border border-border/60"><CardContent className="p-4 text-center"><p className="text-2xl font-black" style={{ color: '#1e5a32' }}>{stats?.farmers ?? 0}</p><p className="text-xs text-muted-foreground mt-0.5">Total Farmers</p></CardContent></Card>
+                    <Card className="border border-border/60"><CardContent className="p-4 text-center"><p className="text-2xl font-black text-blue-600">{Object.keys(farmersByDistrict).length}</p><p className="text-xs text-muted-foreground mt-0.5">Districts Covered</p></CardContent></Card>
+                    <Card className="border border-border/60"><CardContent className="p-4 text-center"><p className="text-2xl font-black text-amber-600">{Object.values(farmersByDistrict).reduce((a, b) => a + b, 0) > 0 ? Math.max(...Object.values(farmersByDistrict)) : 0}</p><p className="text-xs text-muted-foreground mt-0.5">Max in District</p></CardContent></Card>
+                    <Card className="border border-border/60"><CardContent className="p-4 text-center"><p className="text-2xl font-black text-purple-600">{Object.keys(farmersByDistrict)[0] ?? '—'}</p><p className="text-xs text-muted-foreground mt-0.5">Top District</p></CardContent></Card>
+                  </>
+                )}
+              </div>
+              <Card className="border border-border/60">
+                <CardContent className="p-6">
+                  <NepalMap farmersByDistrict={farmersByDistrict} />
+                </CardContent>
+              </Card>
+              <Card className="border border-border/60">
+                <CardHeader className="pb-2"><CardTitle className="text-sm font-bold flex items-center gap-2"><MapPin size={14} style={{ color: '#1e5a32' }} />District Breakdown</CardTitle></CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2">
+                    {Object.entries(farmersByDistrict).sort((a, b) => b[1] - a[1]).map(([district, count]) => (
+                      <div key={district} className="flex items-center justify-between p-2.5 bg-muted/40 dark:bg-white/5 rounded-lg">
+                        <span className="text-xs font-medium text-foreground capitalize truncate">{district}</span>
+                        <span className="text-xs font-bold ml-2 shrink-0 px-1.5 py-0.5 rounded-full text-white text-[10px]" style={{ background: '#1e5a32' }}>{count}</span>
+                      </div>
+                    ))}
+                    {Object.keys(farmersByDistrict).length === 0 && <p className="col-span-full text-sm text-muted-foreground text-center py-4">No district data available.</p>}
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
 
