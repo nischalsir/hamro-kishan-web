@@ -69,11 +69,11 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
-    group: 'CATALOG',
+    group: 'CROPS & DISEASES',
     items: [
-      { id: 'crops',    label: 'Crops',    icon: <Wheat size={16} /> },
-      { id: 'diseases', label: 'Diseases', icon: <Bug size={16} />, badge: (s) => s?.openIssues ?? undefined },
-      { id: 'animals',  label: 'Animals',  icon: <Beef size={16} /> },
+      { id: 'crops',    label: 'Seasonal Crops',    icon: <Wheat size={16} /> },
+      { id: 'diseases', label: 'Plant Diseases', icon: <Bug size={16} />, badge: (s) => s?.openIssues ?? undefined },
+      { id: 'animals',  label: 'Animals Diseases',  icon: <Beef size={16} /> },
     ],
   },
   {
@@ -226,12 +226,16 @@ const CatalogGrid: React.FC<{ category: 'plant' | 'animal'; showSearch?: boolean
 };
 
 // ─── Crops Panel — from seasonalRecommendations ───────────────────────────────
+// ─── Crops Panel — from seasonalRecommendations ───────────────────────────────
 const CropsPanel: React.FC = () => {
   const [query, setQuery] = useState('');
+  
   // Flatten all crops from all months, deduplicate by name
   const allCrops = useMemo(() => {
     const seen = new Set<string>();
-    const result: { name: string; np: string; image: string; months: string[] }[] = [];
+    // 1. CHANGED: Typings changed from 'image' to 'img' to match your array keys
+    const result: { name: string; np: string; img: string; months: string[] }[] = [];
+    
     seasonalRecommendations.forEach((month: any) => {
       (month.crops ?? []).forEach((crop: any) => {
         if (!seen.has(crop.name)) {
@@ -256,7 +260,7 @@ const CropsPanel: React.FC = () => {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-foreground">Crops Catalog</h2>
+          <h2 className="text-xl font-bold text-foreground">Seasonal Crops Suggestion</h2>
           <p className="text-sm text-muted-foreground mt-1">Seasonal crops in the system</p>
         </div>
         <span className="text-xs text-muted-foreground">{filtered.length} crops</span>
@@ -272,8 +276,9 @@ const CropsPanel: React.FC = () => {
           {filtered.map((crop, i) => (
             <Card key={i} className="rounded-xl overflow-hidden border border-border/60 hover:shadow-md transition-shadow">
               <div className="h-24 bg-muted relative">
+                {/* 2. FIXED: Removed local directory prefix and changed to crop.img */}
                 <img
-                  src={`/assets/crops/${crop.image}`}
+                  src={crop.img}
                   alt={crop.name}
                   className="w-full h-full object-cover"
                   onError={e => { (e.target as HTMLImageElement).src = '/assets/placeholder.jpg'; }}
@@ -283,7 +288,10 @@ const CropsPanel: React.FC = () => {
               <CardContent className="p-2.5">
                 <p className="font-semibold text-xs text-foreground line-clamp-1">{crop.name}</p>
                 <p className="text-[10px] text-primary font-medium mt-0.5">{crop.np}</p>
-                <p className="text-[9px] text-muted-foreground mt-1 line-clamp-1">{crop.months.slice(0, 2).join(', ')}{crop.months.length > 2 ? ` +${crop.months.length - 2}` : ''}</p>
+                <p className="text-[9px] text-muted-foreground mt-1 line-clamp-1">
+                  {crop.months.slice(0, 2).join(', ')}
+                  {crop.months.length > 2 ? ` +${crop.months.length - 2}` : ''}
+                </p>
               </CardContent>
             </Card>
           ))}
