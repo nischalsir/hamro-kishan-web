@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import NepalMap from '@/components/NepalMap';
+import { commonDiseases, seasonalRecommendations } from '@/data/mock';
 import {
   Users, ShieldCheck, ShieldX, Leaf, ShoppingBag, BarChart3,
   Edit3, User, CheckCircle, XCircle, Send, BellRing,
   MapPin, TrendingUp, AlertTriangle, Package, ChevronRight,
   Eye, Trash2, Search, LogOut, Activity, RefreshCw, X,
   FileText, Save, Menu, ChevronLeft, LayoutDashboard,
-  Bell, Settings, Home
+  Bell, Settings, Home, BarChart2, Newspaper, ShoppingCart,
+  Bug, Beef, Wheat, ChevronDown
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,7 +28,13 @@ import {
 } from 'recharts';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Section = 'dashboard' | 'users' | 'experts' | 'issues' | 'products' | 'notifications' | 'profile';
+type Section =
+  | 'dashboard' | 'reports'
+  | 'users' | 'farmers' | 'buyers' | 'experts'
+  | 'crops' | 'diseases' | 'animals'
+  | 'products' | 'orders'
+  | 'blogs' | 'notifications'
+  | 'profile';
 
 interface Stats {
   totalUsers: number; farmers: number; buyers: number; experts: number;
@@ -34,15 +42,54 @@ interface Stats {
   openIssues: number; resolvedIssues: number;
 }
 
-// ─── Sidebar Nav Items ────────────────────────────────────────────────────────
-const NAV_ITEMS: { id: Section; label: string; icon: React.ReactNode; badge?: (s: Stats | null) => number | undefined }[] = [
-  { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
-  { id: 'users', label: 'Users', icon: <Users size={18} /> },
-  { id: 'experts', label: 'Experts', icon: <ShieldCheck size={18} />, badge: (s) => s?.pendingVerifications ?? undefined },
-  { id: 'issues', label: 'Crop Issues', icon: <AlertTriangle size={18} />, badge: (s) => s?.openIssues ?? undefined },
-  { id: 'products', label: 'Products', icon: <Package size={18} /> },
-  { id: 'notifications', label: 'Notifications', icon: <Bell size={18} /> },
-  { id: 'profile', label: 'Profile', icon: <User size={18} /> },
+// ─── Grouped Sidebar Nav ──────────────────────────────────────────────────────
+interface NavItem {
+  id: Section;
+  label: string;
+  icon: React.ReactNode;
+  badge?: (s: Stats | null) => number | undefined;
+}
+interface NavGroup { group: string; items: NavItem[] }
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    group: 'OVERVIEW',
+    items: [
+      { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={16} /> },
+      { id: 'reports',   label: 'Reports',   icon: <BarChart2 size={16} /> },
+    ],
+  },
+  {
+    group: 'PEOPLE',
+    items: [
+      { id: 'users',   label: 'Users',   icon: <Users size={16} /> },
+      { id: 'farmers', label: 'Farmers', icon: <Leaf size={16} /> },
+      { id: 'buyers',  label: 'Buyers',  icon: <ShoppingBag size={16} /> },
+      { id: 'experts', label: 'Experts', icon: <ShieldCheck size={16} />, badge: (s) => s?.pendingVerifications ?? undefined },
+    ],
+  },
+  {
+    group: 'CATALOG',
+    items: [
+      { id: 'crops',    label: 'Crops',    icon: <Wheat size={16} /> },
+      { id: 'diseases', label: 'Diseases', icon: <Bug size={16} />, badge: (s) => s?.openIssues ?? undefined },
+      { id: 'animals',  label: 'Animals',  icon: <Beef size={16} /> },
+    ],
+  },
+  {
+    group: 'COMMERCE',
+    items: [
+      { id: 'products', label: 'Products', icon: <Package size={16} /> },
+      { id: 'orders',   label: 'Orders',   icon: <ShoppingCart size={16} /> },
+    ],
+  },
+  {
+    group: 'CONTENT',
+    items: [
+      { id: 'blogs',         label: 'Blogs & News',  icon: <Newspaper size={16} /> },
+      { id: 'notifications', label: 'Notifications', icon: <Bell size={16} /> },
+    ],
+  },
 ];
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
@@ -97,6 +144,261 @@ const DataTable: React.FC<{ headers: string[]; rows: React.ReactNode[][]; loadin
     </table>
   </div>
 );
+
+// ─── Disease Detail Modal (reused from FarmerAdvisory) ───────────────────────
+const InfoBlock: React.FC<{ emoji: string; labelEn: string; text: string; colorClass: string; borderClass: string; labelColorClass: string }> = ({ emoji, labelEn, text, colorClass, borderClass, labelColorClass }) => {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className={`${colorClass} rounded-xl border ${borderClass} overflow-hidden`}>
+      <button onClick={() => setOpen(o => !o)} className="w-full flex items-center justify-between px-4 py-2.5">
+        <span className={`font-bold text-[11px] tracking-wider uppercase ${labelColorClass} flex items-center gap-1.5`}>{emoji} {labelEn}</span>
+        <ChevronDown size={13} className={`${labelColorClass} transition-transform duration-150 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && <div className="px-4 pb-3"><p className="text-sm text-foreground leading-relaxed">{text}</p></div>}
+    </div>
+  );
+};
+
+const DiseaseDetailModal: React.FC<{ disease: any; onClose: () => void }> = ({ disease, onClose }) => (
+  <Dialog open={true} onOpenChange={o => !o && onClose()}>
+    <DialogContent className="max-w-lg rounded-2xl p-0 overflow-hidden bg-card max-h-[90vh] flex flex-col">
+      <div className="relative w-full h-48 shrink-0">
+        <img src={disease.img} alt={disease.name} className="w-full h-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent" />
+        <button onClick={onClose} className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 flex items-center justify-center text-white"><X size={16} /></button>
+        <div className="absolute bottom-3 left-4">
+          <h2 className="text-lg font-black text-white">{disease.name}</h2>
+          <p className="text-sm text-white/70">{disease.nepaliName} · {disease.crop}</p>
+        </div>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-2.5 [&::-webkit-scrollbar]:hidden">
+        <InfoBlock emoji="⚠️" labelEn="Symptoms" text={disease.symptoms} colorClass="bg-amber-50 dark:bg-amber-950/20" borderClass="border-amber-200/80 dark:border-amber-800/30" labelColorClass="text-amber-700 dark:text-amber-400" />
+        <InfoBlock emoji="🔬" labelEn="Cause" text={disease.cause} colorClass="bg-blue-50 dark:bg-blue-950/20" borderClass="border-blue-200/80 dark:border-blue-800/30" labelColorClass="text-blue-700 dark:text-blue-400" />
+        <InfoBlock emoji="✅" labelEn="Treatment" text={disease.treatment} colorClass="bg-green-50 dark:bg-green-950/20" borderClass="border-green-200/80 dark:border-green-800/30" labelColorClass="text-green-700 dark:text-green-400" />
+        <InfoBlock emoji="🛡️" labelEn="Prevention" text={disease.prevention} colorClass="bg-purple-50 dark:bg-purple-950/20" borderClass="border-purple-200/80 dark:border-purple-800/30" labelColorClass="text-purple-700 dark:text-purple-400" />
+      </div>
+    </DialogContent>
+  </Dialog>
+);
+
+// ─── Catalog Grid (Diseases & Animals) ───────────────────────────────────────
+const CatalogGrid: React.FC<{ category: 'plant' | 'animal'; showSearch?: boolean }> = ({ category, showSearch }) => {
+  const [query, setQuery] = useState('');
+  const [selected, setSelected] = useState<any | null>(null);
+  const filtered = useMemo(() =>
+    commonDiseases.filter((d: any) =>
+      (d.category ?? 'plant') === category &&
+      (d.name.toLowerCase().includes(query.toLowerCase()) ||
+       d.crop?.toLowerCase().includes(query.toLowerCase()))
+    ), [query, category]);
+  return (
+    <div className="space-y-4">
+      {showSearch && (
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
+          <Input placeholder={`Search ${category} diseases...`} value={query} onChange={e => setQuery(e.target.value)} className="pl-9 h-9 bg-white dark:bg-card border-border/60" />
+        </div>
+      )}
+      <p className="text-xs text-muted-foreground">{filtered.length} entries</p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+        {filtered.map((d: any) => (
+          <Card key={d.id} onClick={() => setSelected(d)} className="rounded-xl overflow-hidden border border-border/60 cursor-pointer hover:shadow-md transition-shadow">
+            <div className="h-28 bg-muted relative">
+              <img src={d.img} alt={d.name} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
+              <span className="absolute top-1.5 left-1.5 text-[10px] bg-black/50 text-white px-1.5 py-0.5 rounded-full font-semibold">
+                {category === 'animal' ? '🐄' : '🌱'}
+              </span>
+            </div>
+            <CardContent className="p-2.5">
+              <p className="font-semibold text-xs text-foreground line-clamp-1">{d.name}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5 line-clamp-1">{d.crop?.split('•')[0].trim()}</p>
+            </CardContent>
+          </Card>
+        ))}
+        {filtered.length === 0 && (
+          <div className="col-span-full text-center py-12 text-muted-foreground text-sm">No entries found.</div>
+        )}
+      </div>
+      {selected && <DiseaseDetailModal disease={selected} onClose={() => setSelected(null)} />}
+    </div>
+  );
+};
+
+// ─── Crops Panel — from seasonalRecommendations ───────────────────────────────
+const CropsPanel: React.FC = () => {
+  const [query, setQuery] = useState('');
+  // Flatten all crops from all months, deduplicate by name
+  const allCrops = useMemo(() => {
+    const seen = new Set<string>();
+    const result: { name: string; np: string; image: string; months: string[] }[] = [];
+    seasonalRecommendations.forEach((month: any) => {
+      (month.crops ?? []).forEach((crop: any) => {
+        if (!seen.has(crop.name)) {
+          seen.add(crop.name);
+          result.push({ ...crop, months: [month.name] });
+        } else {
+          const existing = result.find(r => r.name === crop.name);
+          if (existing) existing.months.push(month.name);
+        }
+      });
+    });
+    return result;
+  }, []);
+
+  const filtered = useMemo(() =>
+    allCrops.filter(c =>
+      c.name.toLowerCase().includes(query.toLowerCase()) ||
+      c.np?.toLowerCase().includes(query.toLowerCase())
+    ), [allCrops, query]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Crops Catalog</h2>
+          <p className="text-sm text-muted-foreground mt-1">Seasonal crops in the system</p>
+        </div>
+        <span className="text-xs text-muted-foreground">{filtered.length} crops</span>
+      </div>
+      <div className="relative max-w-sm">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
+        <Input placeholder="Search crops..." value={query} onChange={e => setQuery(e.target.value)} className="pl-9 h-9 bg-white dark:bg-card border-border/60" />
+      </div>
+      {filtered.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">No crops found.</div>
+      ) : (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+          {filtered.map((crop, i) => (
+            <Card key={i} className="rounded-xl overflow-hidden border border-border/60 hover:shadow-md transition-shadow">
+              <div className="h-24 bg-muted relative">
+                <img
+                  src={`/assets/crops/${crop.image}`}
+                  alt={crop.name}
+                  className="w-full h-full object-cover"
+                  onError={e => { (e.target as HTMLImageElement).src = '/assets/placeholder.jpg'; }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+              </div>
+              <CardContent className="p-2.5">
+                <p className="font-semibold text-xs text-foreground line-clamp-1">{crop.name}</p>
+                <p className="text-[10px] text-primary font-medium mt-0.5">{crop.np}</p>
+                <p className="text-[9px] text-muted-foreground mt-1 line-clamp-1">{crop.months.slice(0, 2).join(', ')}{crop.months.length > 2 ? ` +${crop.months.length - 2}` : ''}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── Agricultural News Panel — NewsAPI.org ────────────────────────────────────
+// Uses the free NewsAPI.org endpoint. Replace NEWS_API_KEY with your key.
+// Get a free key at https://newsapi.org/register
+const NEWS_API_KEY = 'YOUR_NEWSAPI_KEY'; // ← replace with your key
+
+const AgriNewsPanel: React.FC = () => {
+  const [articles, setArticles] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('agriculture farming Nepal');
+
+  const fetchNews = useCallback(async (q: string) => {
+    if (NEWS_API_KEY === 'YOUR_NEWSAPI_KEY') {
+      setError('Add your NewsAPI key to enable live news. Get a free key at https://newsapi.org/register');
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&language=en&sortBy=publishedAt&pageSize=20&apiKey=${NEWS_API_KEY}`;
+      const res = await fetch(url);
+      const data = await res.json();
+      if (data.status !== 'ok') throw new Error(data.message ?? 'Failed to fetch news');
+      setArticles(data.articles ?? []);
+    } catch (e: any) {
+      setError(e.message ?? 'Failed to load news');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchNews(query); }, []);
+
+  const QUICK_TOPICS = ['Agriculture Nepal', 'Crop Disease', 'Farming Technology', 'Organic Farming', 'Livestock Nepal'];
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-start justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-foreground">Agricultural News</h2>
+          <p className="text-sm text-muted-foreground mt-1">Live news feed via NewsAPI.org</p>
+        </div>
+        <button onClick={() => fetchNews(query)} className="p-2 rounded-lg hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
+          <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+        </button>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {QUICK_TOPICS.map(t => (
+          <button key={t} onClick={() => { setQuery(t); fetchNews(t); }}
+            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors border ${query === t ? 'border-transparent text-white' : 'border-border/60 text-muted-foreground hover:text-foreground hover:border-border'}`}
+            style={query === t ? { background: BRAND } : {}}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-2">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
+          <Input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchNews(query)} placeholder="Search agricultural news..." className="pl-9 h-9 bg-white dark:bg-card border-border/60" />
+        </div>
+        <Button onClick={() => fetchNews(query)} className="h-9 px-4 text-sm font-semibold" style={{ background: BRAND }}>Search</Button>
+      </div>
+
+      {error && (
+        <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-sm text-amber-800 dark:text-amber-400 space-y-1">
+          <p className="font-semibold">NewsAPI not configured</p>
+          <p className="text-xs">{error}</p>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}
+        </div>
+      ) : articles.length > 0 ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {articles.filter(a => a.title && a.title !== '[Removed]').map((article, i) => (
+            <a key={i} href={article.url} target="_blank" rel="noopener noreferrer"
+              className="block group">
+              <Card className="h-full rounded-xl border border-border/60 overflow-hidden hover:shadow-md transition-shadow">
+                {article.urlToImage && (
+                  <div className="h-36 bg-muted overflow-hidden">
+                    <img src={article.urlToImage} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  </div>
+                )}
+                <CardContent className="p-3 space-y-1.5">
+                  <p className="text-xs font-bold text-foreground line-clamp-2 group-hover:text-primary transition-colors">{article.title}</p>
+                  <p className="text-[10px] text-muted-foreground line-clamp-2">{article.description}</p>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[9px] text-muted-foreground/70 font-medium">{article.source?.name}</span>
+                    <span className="text-[9px] text-muted-foreground/70">{article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : ''}</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </a>
+          ))}
+        </div>
+      ) : !error && !loading ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">No articles found for this topic.</div>
+      ) : null}
+    </div>
+  );
+};
 
 // ─── Push Notification Component ──────────────────────────────────────────────
 const NotificationsPanel: React.FC = () => {
@@ -428,7 +730,10 @@ export const AdminDashboard: React.FC = () => {
   // ── Effects ───────────────────────────────────────────────────────────────
   useEffect(() => { if (!loading && user?.id) loadStats(); }, [loading, user?.id]);
   useEffect(() => { if (profile) setEditName(profile.full_name ?? ''); }, [profile]);
-  useEffect(() => { loadSection(section); }, [section]);
+  useEffect(() => {
+    if (section === 'farmers' || section === 'buyers') loadSection('users');
+    else loadSection(section as any);
+  }, [section]);
 
   if (loading && !profile) {
     return (
@@ -462,58 +767,77 @@ export const AdminDashboard: React.FC = () => {
     <div className="flex h-screen bg-muted/30 overflow-hidden font-sans">
 
       {/* ══════════════════ SIDEBAR ══════════════════ */}
-      <aside className={`${sidebarW} flex-shrink-0 bg-white dark:bg-card border-r border-border/60 flex flex-col transition-all duration-300 ease-in-out overflow-hidden`}>
+      <aside className={`${sidebarW} flex-shrink-0 bg-[#0f1117] border-r border-white/5 flex flex-col transition-all duration-300 ease-in-out overflow-hidden`}>
         {/* Logo */}
-        <div className="h-16 flex items-center gap-3 px-4 border-b border-border/60 flex-shrink-0">
-          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: BRAND }}>
-            <Leaf size={16} className="text-white" />
+        <div className="h-14 flex items-center gap-3 px-4 border-b border-white/5 flex-shrink-0">
+          <div className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: BRAND }}>
+            <Leaf size={14} className="text-white" />
           </div>
           {!sidebarCollapsed && (
             <div className="overflow-hidden">
-              <p className="text-sm font-black text-foreground leading-tight whitespace-nowrap">Hamro Kisan</p>
-              <p className="text-[10px] text-muted-foreground whitespace-nowrap">Admin Console</p>
+              <p className="text-sm font-bold text-white leading-tight whitespace-nowrap">Hamro Kisan</p>
+              <p className="text-[10px] text-white/40 whitespace-nowrap">Admin Console</p>
             </div>
           )}
         </div>
 
-        {/* Nav */}
-        <nav className="flex-1 py-4 space-y-1 px-2 overflow-y-auto">
-          {NAV_ITEMS.map(item => {
-            const badgeCount = item.badge?.(stats);
-            const active = section === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setSection(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 relative group
-                  ${active ? 'text-white shadow-sm' : 'text-muted-foreground hover:bg-muted/60 hover:text-foreground'}`}
-                style={active ? { background: BRAND } : {}}
-              >
-                <span className="flex-shrink-0">{item.icon}</span>
-                {!sidebarCollapsed && <span className="flex-1 text-left whitespace-nowrap">{item.label}</span>}
-                {!sidebarCollapsed && badgeCount !== undefined && badgeCount > 0 && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">{badgeCount}</span>
-                )}
-                {sidebarCollapsed && badgeCount !== undefined && badgeCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-red-500" />
-                )}
-                {sidebarCollapsed && (
-                  <div className="absolute left-full ml-2 px-2 py-1 bg-popover border border-border rounded-md text-xs font-medium text-foreground whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-md">
-                    {item.label}
-                  </div>
-                )}
-              </button>
-            );
-          })}
+        {/* Grouped Nav */}
+        <nav className="flex-1 py-3 overflow-y-auto [&::-webkit-scrollbar]:hidden">
+          {NAV_GROUPS.map(({ group, items }) => (
+            <div key={group} className="mb-1">
+              {!sidebarCollapsed && (
+                <p className="px-4 pt-3 pb-1 text-[10px] font-bold tracking-widest text-white/30 uppercase select-none">{group}</p>
+              )}
+              {sidebarCollapsed && <div className="my-2 mx-3 border-t border-white/10" />}
+              {items.map(item => {
+                const badgeCount = item.badge?.(stats);
+                const active = section === item.id;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setSection(item.id)}
+                    className={`w-full flex items-center gap-2.5 px-4 py-2 text-[13px] font-medium transition-all duration-100 relative group
+                      ${active
+                        ? 'bg-white/10 text-white border-l-2 border-[#1e5a32]'
+                        : 'text-white/50 hover:bg-white/5 hover:text-white/80 border-l-2 border-transparent'
+                      }`}
+                  >
+                    <span className="flex-shrink-0">{item.icon}</span>
+                    {!sidebarCollapsed && <span className="flex-1 text-left whitespace-nowrap">{item.label}</span>}
+                    {!sidebarCollapsed && badgeCount !== undefined && badgeCount > 0 && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white leading-none">{badgeCount}</span>
+                    )}
+                    {sidebarCollapsed && badgeCount !== undefined && badgeCount > 0 && (
+                      <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500" />
+                    )}
+                    {sidebarCollapsed && (
+                      <div className="absolute left-full ml-2 px-2 py-1 bg-[#1a1d27] border border-white/10 rounded-md text-xs font-medium text-white whitespace-nowrap opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity z-50 shadow-xl">
+                        {item.label}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          ))}
         </nav>
 
-        {/* Logout */}
-        <div className="p-2 border-t border-border/60 flex-shrink-0">
+        {/* Profile + Logout */}
+        <div className="border-t border-white/5 flex-shrink-0">
+          <button
+            onClick={() => setSection('profile')}
+            className={`w-full flex items-center gap-2.5 px-4 py-3 transition-all border-l-2 ${section === 'profile' ? 'bg-white/10 text-white border-[#1e5a32]' : 'text-white/50 hover:bg-white/5 hover:text-white/80 border-transparent'}`}
+          >
+            <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+              {profile?.avatar_url ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" /> : <User size={12} className="text-white/60" />}
+            </div>
+            {!sidebarCollapsed && <span className="text-[13px] font-medium whitespace-nowrap truncate">{profile?.full_name ?? 'Profile'}</span>}
+          </button>
           <button
             onClick={logout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-600 dark:hover:text-red-400 transition-all"
+            className="w-full flex items-center gap-2.5 px-4 py-3 text-[13px] font-medium text-white/40 hover:bg-white/5 hover:text-red-400 transition-all border-l-2 border-transparent"
           >
-            <LogOut size={18} className="flex-shrink-0" />
+            <LogOut size={16} className="flex-shrink-0" />
             {!sidebarCollapsed && <span>Logout</span>}
           </button>
         </div>
@@ -529,7 +853,7 @@ export const AdminDashboard: React.FC = () => {
           </button>
           <div className="flex-1">
             <h1 className="text-sm font-bold text-foreground capitalize">
-              {NAV_ITEMS.find(n => n.id === section)?.label ?? 'Dashboard'}
+              {NAV_GROUPS.flatMap(g => g.items).find(n => n.id === section)?.label ?? 'Dashboard'}
             </h1>
             <p className="text-xs text-muted-foreground">
               {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
@@ -788,6 +1112,165 @@ export const AdminDashboard: React.FC = () => {
               ])}
             />
           )}
+
+          {/* ════════════ FARMERS ════════════ */}
+          {section === 'farmers' && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
+                  <Input placeholder="Search farmers..." value={userSearch} onChange={e => setUserSearch(e.target.value)} className="pl-9 h-9 bg-white dark:bg-card border-border/60" />
+                </div>
+                <span className="text-xs text-muted-foreground ml-auto">{users.filter(u => u.role === 'farmer').filter(u => u.full_name?.toLowerCase().includes(userSearch.toLowerCase()) || u.phone_number?.includes(userSearch)).length} farmers</span>
+              </div>
+              <DataTable
+                headers={['Farmer', 'Phone', 'Joined', 'Actions']}
+                loading={sectionLoading}
+                rows={users.filter(u => u.role === 'farmer').filter(u => u.full_name?.toLowerCase().includes(userSearch.toLowerCase()) || u.phone_number?.includes(userSearch)).map(u => [
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {u.avatar_url ? <img src={u.avatar_url} alt="" className="w-full h-full object-cover" /> : <User size={14} className="text-muted-foreground" />}
+                    </div>
+                    <span className="font-medium text-foreground">{u.full_name || '—'}</span>
+                  </div>,
+                  <span className="text-muted-foreground">{u.phone_number || '—'}</span>,
+                  <span className="text-muted-foreground text-xs">{new Date(u.created_at).toLocaleDateString()}</span>,
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => openUserModal(u)} className="p-1.5 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"><Edit3 size={14} /></button>
+                    <button onClick={() => handleDeleteUser(u.id)} className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-600 transition-colors"><Trash2 size={14} /></button>
+                  </div>
+                ])}
+              />
+            </div>
+          )}
+
+          {/* ════════════ BUYERS ════════════ */}
+          {section === 'buyers' && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
+                  <Input placeholder="Search buyers..." value={userSearch} onChange={e => setUserSearch(e.target.value)} className="pl-9 h-9 bg-white dark:bg-card border-border/60" />
+                </div>
+                <span className="text-xs text-muted-foreground ml-auto">{users.filter(u => u.role === 'buyer').length} buyers</span>
+              </div>
+              <DataTable
+                headers={['Buyer', 'Phone', 'Joined', 'Actions']}
+                loading={sectionLoading}
+                rows={users.filter(u => u.role === 'buyer').filter(u => u.full_name?.toLowerCase().includes(userSearch.toLowerCase()) || u.phone_number?.includes(userSearch)).map(u => [
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center overflow-hidden flex-shrink-0">
+                      {u.avatar_url ? <img src={u.avatar_url} alt="" className="w-full h-full object-cover" /> : <User size={14} className="text-muted-foreground" />}
+                    </div>
+                    <span className="font-medium text-foreground">{u.full_name || '—'}</span>
+                  </div>,
+                  <span className="text-muted-foreground">{u.phone_number || '—'}</span>,
+                  <span className="text-muted-foreground text-xs">{new Date(u.created_at).toLocaleDateString()}</span>,
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => openUserModal(u)} className="p-1.5 rounded-md hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors"><Edit3 size={14} /></button>
+                    <button onClick={() => handleDeleteUser(u.id)} className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-950/30 text-muted-foreground hover:text-red-600 transition-colors"><Trash2 size={14} /></button>
+                  </div>
+                ])}
+              />
+            </div>
+          )}
+
+          {/* ════════════ REPORTS ════════════ */}
+          {section === 'reports' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Reports & Analytics</h2>
+                <p className="text-sm text-muted-foreground mt-1">Platform-wide statistics overview</p>
+              </div>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                {statsLoading ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />) : (
+                  <>
+                    <StatCard label="Total Users" value={stats?.totalUsers ?? 0} icon={<Users size={18} />} color="#1e5a32" />
+                    <StatCard label="Farmers" value={stats?.farmers ?? 0} icon={<Leaf size={18} />} color="#16a34a" />
+                    <StatCard label="Buyers" value={stats?.buyers ?? 0} icon={<ShoppingBag size={18} />} color="#d97706" />
+                    <StatCard label="Experts" value={stats?.experts ?? 0} icon={<ShieldCheck size={18} />} color="#7c3aed" />
+                  </>
+                )}
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <Card className="border border-border/60">
+                  <CardHeader className="pb-2"><CardTitle className="text-sm font-bold flex items-center gap-2"><TrendingUp size={14} style={{ color: BRAND }} />User Growth</CardTitle></CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <AreaChart data={growthData} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="rFarmer" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#1e5a32" stopOpacity={0.25} /><stop offset="95%" stopColor="#1e5a32" stopOpacity={0} /></linearGradient>
+                          <linearGradient id="rBuyer" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#d97706" stopOpacity={0.25} /><stop offset="95%" stopColor="#d97706" stopOpacity={0} /></linearGradient>
+                        </defs>
+                        <XAxis dataKey="month" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                        <Area type="monotone" dataKey="farmers" stroke="#1e5a32" strokeWidth={2} fill="url(#rFarmer)" name="Farmers" />
+                        <Area type="monotone" dataKey="buyers" stroke="#d97706" strokeWidth={2} fill="url(#rBuyer)" name="Buyers" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+                <Card className="border border-border/60">
+                  <CardHeader className="pb-2"><CardTitle className="text-sm font-bold flex items-center gap-2"><BarChart3 size={14} style={{ color: BRAND }} />Issues & Products</CardTitle></CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <BarChart data={issueData} margin={{ top: 4, right: 4, left: -28, bottom: 0 }}>
+                        <XAxis dataKey="name" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                        <YAxis tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                        <Tooltip contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                        <Bar dataKey="value" radius={[6, 6, 0, 0]}>
+                          {issueData.map((entry, idx) => <Cell key={idx} fill={entry.fill} />)}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
+
+          {/* ════════════ CROPS ════════════ */}
+          {section === 'crops' && <CropsPanel />}
+
+          {/* ════════════ DISEASES ════════════ */}
+          {section === 'diseases' && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Disease Library</h2>
+                <p className="text-sm text-muted-foreground mt-1">All plant diseases in the system</p>
+              </div>
+              <CatalogGrid category="plant" showSearch />
+            </div>
+          )}
+
+          {/* ════════════ ANIMALS ════════════ */}
+          {section === 'animals' && (
+            <div className="space-y-4">
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Animal Diseases</h2>
+                <p className="text-sm text-muted-foreground mt-1">Livestock disease reference library</p>
+              </div>
+              <CatalogGrid category="animal" showSearch />
+            </div>
+          )}
+
+          {/* ════════════ ORDERS ════════════ */}
+          {section === 'orders' && (
+            <div className="flex flex-col items-center justify-center h-[60vh] gap-4 text-center">
+              <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center">
+                <ShoppingCart size={28} className="text-muted-foreground/50" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-foreground">Orders — Coming Soon</h2>
+                <p className="text-sm text-muted-foreground mt-1 max-w-xs">Order management will be available once your orders table is set up in Supabase.</p>
+              </div>
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-muted text-muted-foreground">In Development</span>
+            </div>
+          )}
+
+          {/* ════════════ BLOGS ════════════ */}
+          {section === 'blogs' && <AgriNewsPanel />}
 
           {/* ════════════ NOTIFICATIONS ════════════ */}
           {section === 'notifications' && <NotificationsPanel />}
