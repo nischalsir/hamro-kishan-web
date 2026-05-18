@@ -281,7 +281,7 @@ const CropsPanel: React.FC = () => {
 
   const allCrops = useMemo(() => {
     const seen = new Set<string>();
-    const result: { name: string; np: string; image: string; months: string[] }[] = [];
+    const result: { name: string; np: string; img: string; months: string[] }[] = [];
     seasonalRecommendations.forEach((month: any) => {
       (month.crops ?? []).forEach((crop: any) => {
         if (!seen.has(crop.name)) {
@@ -324,7 +324,7 @@ const CropsPanel: React.FC = () => {
               className="rounded-xl overflow-hidden border border-border/60 hover:shadow-md transition-all cursor-pointer hover:scale-[1.02] active:scale-[0.98]">
               <div className="h-24 bg-muted relative">
                 <img
-                  src={`/assets/crops/${crop.image}`}
+                  src={crop.img}
                   alt={crop.name}
                   className="w-full h-full object-cover"
                   onError={e => { (e.target as HTMLImageElement).src = '/assets/placeholder.jpg'; }}
@@ -960,18 +960,19 @@ export const AdminDashboard: React.FC = () => {
 
       {/* ══════════════════ SIDEBAR ══════════════════ */}
       <aside className={`${sidebarW} flex-shrink-0 bg-[#0f1117] border-r border-white/5 flex flex-col transition-all duration-300 ease-in-out overflow-hidden`}>
-        {/* Logo */}
-        <div className="h-14 flex items-center gap-3 px-4 border-b border-white/5 flex-shrink-0">
-          <div className="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: BRAND }}>
-            <Leaf size={14} className="text-white" />
-          </div>
-          {!sidebarCollapsed && (
-            <div className="overflow-hidden">
-              <p className="text-sm font-bold text-white leading-tight whitespace-nowrap">Hamro Kisan</p>
-              <p className="text-[10px] text-white/40 whitespace-nowrap">Admin Console</p>
-            </div>
-          )}
-        </div>
+      {/* Logo */}
+<div className="h-14 flex items-center gap-3 px-4 border-b border-white/5 flex-shrink-0">
+  <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: BRAND }}>
+    {/* FIXED: Removed p-1 and changed object-contain to object-cover to force-zoom the logo to fill the square */}
+    <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" />
+  </div>
+  {!sidebarCollapsed && (
+    <div className="overflow-hidden">
+      <p className="text-sm font-bold text-white leading-tight whitespace-nowrap">Hamro Kisan</p>
+      <p className="text-[10px] text-white/40 whitespace-nowrap">Admin Console</p>
+    </div>
+  )}
+</div>
 
         {/* Grouped Nav */}
         <nav className="flex-1 py-3 overflow-y-auto [&::-webkit-scrollbar]:hidden">
