@@ -351,16 +351,19 @@ const CropsPanel: React.FC = () => {
 const AgriNewsPanel: React.FC = () => {
   const [articles, setArticles] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [query, setQuery] = useState('agriculture farming Nepal');
+  const [activeTab, setActiveTab] = useState<'live' | 'sources'>('sources');
 
   const fetchNews = useCallback(async (q: string) => {
     if (NEWS_API_KEY === 'YOUR_NEWSAPI_KEY') {
-      setError('Add your NewsAPI key to enable live news. Get a free key at https://newsapi.org/register');
+      setApiError('no_key');
+      setActiveTab('sources');
       return;
     }
     setLoading(true);
-    setError(null);
+    setApiError(null);
+    setActiveTab('live');
     try {
       const url = `https://newsapi.org/v2/everything?q=${encodeURIComponent(q)}&language=en&sortBy=publishedAt&pageSize=20&apiKey=${NEWS_API_KEY}`;
       const res = await fetch(url);
@@ -368,7 +371,7 @@ const AgriNewsPanel: React.FC = () => {
       if (data.status !== 'ok') throw new Error(data.message ?? 'Failed to fetch news');
       setArticles(data.articles ?? []);
     } catch (e: any) {
-      setError(e.message ?? 'Failed to load news');
+      setApiError(e.message ?? 'Failed to load news');
     } finally {
       setLoading(false);
     }
@@ -378,100 +381,139 @@ const AgriNewsPanel: React.FC = () => {
 
   const QUICK_TOPICS = ['Agriculture Nepal', 'Crop Disease', 'Farming Technology', 'Organic Farming', 'Livestock Nepal'];
 
+  const SOURCES = [
+    { name: 'Ministry of Agriculture Nepal', url: 'https://moald.gov.np',                              desc: 'Official government agricultural updates and policies',         flag: '🇳🇵' },
+    { name: 'NARC Nepal',                    url: 'https://narc.gov.np',                               desc: 'Nepal Agricultural Research Council research updates',          flag: '🔬' },
+    { name: 'FAO Nepal',                     url: 'https://www.fao.org/nepal/en/',                     desc: 'UN Food & Agriculture Organization — Nepal office',             flag: '🌍' },
+    { name: 'AgriNews Nepal',                url: 'https://www.agrinewsnepal.com',                     desc: 'Local farming news, market prices and crop advisory',           flag: '📰' },
+    { name: 'Krishi Jagat',                  url: 'https://krishijagat.in',                            desc: 'South Asian agricultural news and technology',                  flag: '🌾' },
+    { name: 'The Guardian – Agriculture',    url: 'https://www.theguardian.com/environment/agriculture', desc: 'Global food systems and agricultural environment news',       flag: '🌿' },
+    { name: 'ICIMOD',                        url: 'https://www.icimod.org',                            desc: 'Mountain research — climate & agriculture in the Hindu Kush Himalayas', flag: '🏔️' },
+    { name: 'FAO News',                      url: 'https://www.fao.org/newsroom/en/',                  desc: 'Global food security and agricultural news from the UN',        flag: '🌐' },
+  ];
+
   return (
     <div className="space-y-5">
+      {/* Header */}
       <div className="flex items-start justify-between">
         <div>
-          <h2 className="text-xl font-bold text-foreground">Agricultural News</h2>
-          <p className="text-sm text-muted-foreground mt-1">Live news feed via NewsAPI.org</p>
+          <h2 className="text-xl font-bold text-foreground">Blogs & Agricultural News</h2>
+          <p className="text-sm text-muted-foreground mt-1">Live news feed and curated sources</p>
         </div>
-        <button onClick={() => fetchNews(query)} className="p-2 rounded-lg hover:bg-muted/60 text-muted-foreground hover:text-foreground transition-colors">
-          <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+        {activeTab === 'live' && (
+          <button onClick={() => fetchNews(query)} className="p-2 rounded-lg hover:bg-muted/60 dark:hover:bg-white/5 text-muted-foreground hover:text-foreground transition-colors">
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+          </button>
+        )}
+      </div>
+
+      {/* Tab toggle */}
+      <div className="flex gap-1 p-1 bg-muted dark:bg-white/5 rounded-lg w-fit">
+        <button onClick={() => setActiveTab('sources')}
+          className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${activeTab === 'sources' ? 'bg-white dark:bg-white/10 text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+          📚 Sources
+        </button>
+        <button onClick={() => { setActiveTab('live'); if (NEWS_API_KEY !== 'YOUR_NEWSAPI_KEY') fetchNews(query); }}
+          className={`px-4 py-1.5 rounded-md text-xs font-semibold transition-all ${activeTab === 'live' ? 'bg-white dark:bg-white/10 text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>
+          📡 Live Feed {NEWS_API_KEY === 'YOUR_NEWSAPI_KEY' && <span className="ml-1 text-[9px] text-amber-500">API needed</span>}
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        {QUICK_TOPICS.map(t => (
-          <button key={t} onClick={() => { setQuery(t); fetchNews(t); }}
-            className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors border ${query === t ? 'border-transparent text-white' : 'border-border/60 text-muted-foreground hover:text-foreground hover:border-border'}`}
-            style={query === t ? { background: BRAND } : {}}>
-            {t}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
-          <Input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchNews(query)} placeholder="Search agricultural news..." className="pl-9 h-9 bg-white dark:bg-card border-border/60" />
-        </div>
-        <Button onClick={() => fetchNews(query)} className="h-9 px-4 text-sm font-semibold" style={{ background: BRAND }}>Search</Button>
-      </div>
-
-      {error && (
+      {/* ── SOURCES TAB ── */}
+      {activeTab === 'sources' && (
         <div className="space-y-4">
-          <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 text-sm space-y-1">
-            <p className="font-semibold text-amber-800 dark:text-amber-400">NewsAPI not configured</p>
-            <p className="text-xs text-amber-700 dark:text-amber-500">{error}</p>
+          <p className="text-sm font-semibold text-foreground">Recommended Agricultural News Sources</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {SOURCES.map((source, i) => (
+              <a key={i} href={source.url} target="_blank" rel="noopener noreferrer"
+                className="flex items-start gap-3 p-3.5 rounded-xl border border-border/60 dark:border-white/8 bg-card dark:bg-white/5 hover:shadow-md hover:border-border dark:hover:bg-white/10 transition-all group">
+                <span className="text-2xl flex-shrink-0 mt-0.5">{source.flag}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-1">{source.name}</p>
+                  <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2 leading-relaxed">{source.desc}</p>
+                </div>
+                <ExternalLink size={12} className="flex-shrink-0 text-muted-foreground/40 group-hover:text-primary mt-0.5 transition-colors" />
+              </a>
+            ))}
           </div>
-          {/* Curated fallback links */}
-          <div>
-            <p className="text-sm font-semibold text-foreground mb-3">Recommended Agricultural News Sources</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {[
-                { name: 'Ministry of Agriculture Nepal', url: 'https://moald.gov.np', desc: 'Official government agricultural updates and policies', flag: '🇳🇵' },
-                { name: 'Krishi Bazar', url: 'https://krishibazaar.in', desc: 'Agricultural market prices and farming news', flag: '🌾' },
-                { name: 'FAO Nepal', url: 'https://www.fao.org/nepal', desc: 'UN Food & Agriculture Organization — Nepal office', flag: '🌍' },
-                { name: 'NARC Nepal', url: 'https://narc.gov.np', desc: 'Nepal Agricultural Research Council updates', flag: '🔬' },
-                { name: 'AgriNews Nepal', url: 'https://www.agrinewsnepal.com', desc: 'Local farming news and crop advisory', flag: '📰' },
-                { name: 'The Guardian – Agriculture', url: 'https://www.theguardian.com/environment/agriculture', desc: 'Global agricultural environment news', flag: '🌿' },
-              ].map((source, i) => (
-                <a key={i} href={source.url} target="_blank" rel="noopener noreferrer"
-                  className="flex items-start gap-3 p-3 rounded-xl border border-border/60 bg-card hover:shadow-md hover:border-border transition-all group dark:bg-white/5 dark:hover:bg-white/10">
-                  <span className="text-2xl flex-shrink-0">{source.flag}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors truncate">{source.name}</p>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{source.desc}</p>
-                  </div>
-                  <ExternalLink size={13} className="flex-shrink-0 text-muted-foreground/50 group-hover:text-primary mt-0.5 transition-colors" />
-                </a>
-              ))}
+
+          {NEWS_API_KEY === 'YOUR_NEWSAPI_KEY' && (
+            <div className="p-4 rounded-xl bg-[#1e5a32]/10 dark:bg-[#1e5a32]/20 border border-[#1e5a32]/30 text-sm flex items-start gap-3">
+              <span className="text-lg shrink-0">💡</span>
+              <div>
+                <p className="font-semibold text-foreground">Enable live news feed</p>
+                <p className="text-xs text-muted-foreground mt-1">Get a free API key at <a href="https://newsapi.org/register" target="_blank" rel="noopener noreferrer" className="text-primary underline">newsapi.org/register</a>, then replace <code className="bg-muted dark:bg-white/10 px-1 rounded text-[11px]">YOUR_NEWSAPI_KEY</code> in the component.</p>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}
+      {/* ── LIVE FEED TAB ── */}
+      {activeTab === 'live' && (
+        <div className="space-y-4">
+          {NEWS_API_KEY === 'YOUR_NEWSAPI_KEY' ? (
+            <div className="flex flex-col items-center justify-center h-48 gap-3 rounded-xl border border-dashed border-border/60 dark:border-white/10 bg-muted/20 dark:bg-white/5">
+              <span className="text-3xl">📡</span>
+              <div className="text-center">
+                <p className="text-sm font-semibold text-foreground">NewsAPI key not configured</p>
+                <p className="text-xs text-muted-foreground mt-1">Get a free key at <a href="https://newsapi.org/register" target="_blank" rel="noopener noreferrer" className="text-primary underline">newsapi.org/register</a></p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_TOPICS.map(t => (
+                  <button key={t} onClick={() => { setQuery(t); fetchNews(t); }}
+                    className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors border ${query === t ? 'border-transparent text-white' : 'border-border/60 dark:border-white/10 text-muted-foreground hover:text-foreground dark:hover:bg-white/5'}`}
+                    style={query === t ? { background: '#1e5a32' } : {}}>
+                    {t}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={15} />
+                  <Input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchNews(query)} placeholder="Search agricultural news..." className="pl-9 h-9 bg-white dark:bg-white/5 border-border/60 dark:border-white/10" />
+                </div>
+                <Button onClick={() => fetchNews(query)} className="h-9 px-4 text-sm font-semibold" style={{ background: '#1e5a32' }}>Search</Button>
+              </div>
+              {loading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-48 rounded-xl" />)}
+                </div>
+              ) : apiError ? (
+                <div className="p-4 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/40 text-sm text-red-700 dark:text-red-400">{apiError}</div>
+              ) : articles.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {articles.filter(a => a.title && a.title !== '[Removed]').map((article, i) => (
+                    <a key={i} href={article.url} target="_blank" rel="noopener noreferrer" className="block group">
+                      <Card className="h-full rounded-xl border border-border/60 dark:border-white/8 dark:bg-white/5 overflow-hidden hover:shadow-md transition-shadow">
+                        {article.urlToImage && (
+                          <div className="h-36 bg-muted overflow-hidden">
+                            <img src={article.urlToImage} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          </div>
+                        )}
+                        <CardContent className="p-3 space-y-1.5">
+                          <p className="text-xs font-bold text-foreground line-clamp-2 group-hover:text-primary transition-colors">{article.title}</p>
+                          <p className="text-[10px] text-muted-foreground line-clamp-2">{article.description}</p>
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-[9px] text-muted-foreground/70 font-medium">{article.source?.name}</span>
+                            <span className="text-[9px] text-muted-foreground/70">{article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : ''}</span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-muted-foreground text-sm">No articles found.</div>
+              )}
+            </>
+          )}
         </div>
-      ) : articles.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {articles.filter(a => a.title && a.title !== '[Removed]').map((article, i) => (
-            <a key={i} href={article.url} target="_blank" rel="noopener noreferrer"
-              className="block group">
-              <Card className="h-full rounded-xl border border-border/60 overflow-hidden hover:shadow-md transition-shadow">
-                {article.urlToImage && (
-                  <div className="h-36 bg-muted overflow-hidden">
-                    <img src={article.urlToImage} alt={article.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                  </div>
-                )}
-                <CardContent className="p-3 space-y-1.5">
-                  <p className="text-xs font-bold text-foreground line-clamp-2 group-hover:text-primary transition-colors">{article.title}</p>
-                  <p className="text-[10px] text-muted-foreground line-clamp-2">{article.description}</p>
-                  <div className="flex items-center justify-between pt-1">
-                    <span className="text-[9px] text-muted-foreground/70 font-medium">{article.source?.name}</span>
-                    <span className="text-[9px] text-muted-foreground/70">{article.publishedAt ? new Date(article.publishedAt).toLocaleDateString() : ''}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </a>
-          ))}
-        </div>
-      ) : !error && !loading ? (
-        <div className="text-center py-12 text-muted-foreground text-sm">No articles found for this topic.</div>
-      ) : null}
+      )}
     </div>
   );
 };
