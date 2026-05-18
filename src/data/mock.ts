@@ -1,4 +1,10 @@
 // --- NEW ADVISORY DATA ---
+const CLOUDINARY_BASE_URL = "https://res.cloudinary.com/dfovyqsvo/image/upload/v1779088606";
+
+export const getImageUrl = (path: string): string => {
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  return `${CLOUDINARY_BASE_URL}/${path}`;
+};
 export const seasonalRecommendations = [
   { name: "January", crops: [
     { name: "Wheat", np: "गहुँ", image: "https://res.cloudinary.com/dfovyqsvo/image/upload/v1779088606/wheat.jpg" },
