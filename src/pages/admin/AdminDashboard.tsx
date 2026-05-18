@@ -228,6 +228,7 @@ const CatalogGrid: React.FC<{ category: 'plant' | 'animal'; showSearch?: boolean
   );
 };
 
+
 // ─── Crop Detail Modal ────────────────────────────────────────────────────────
 const CropDetailModal: React.FC<{ crop: any; onClose: () => void }> = ({ crop, onClose }) => (
   <Dialog open={true} onOpenChange={o => !o && onClose()}>
