@@ -1,7 +1,7 @@
 // --- NEW ADVISORY DATA ---
 export const seasonalRecommendations = [
   { name: "January", crops: [
-    { name: "Wheat", np: "गहुँ", image: "wheat.jpg" },
+    { name: "Wheat", np: "गहुँ", image: "https://res.cloudinary.com/dfovyqsvo/image/upload/v1779088606/wheat.jpg" },
     { name: "Potato", np: "आलु", image: "potato.jpg" },
     { name: "Onion", np: "प्याज", image: "onion.jpg" },
     { name: "Spinach", np: "पालुंगो", image: "spinach.jpg" },
