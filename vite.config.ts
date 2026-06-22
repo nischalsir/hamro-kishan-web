@@ -16,6 +16,7 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@capacitor/preferences": path.resolve(__dirname, "src/shims/capacitor-preferences.ts"),
     },
   },
 }));
